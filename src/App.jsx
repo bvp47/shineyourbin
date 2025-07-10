@@ -11,7 +11,7 @@ const timeSlots = [
 
 const addonOptions = [
   { label: "Deodorizer Spray ($2)", value: "deodorizer", price: 2 },
-  { label: "Recycle Bin Cleaning ($5)", value: "recycle-bin", price: 5 }
+  { label: "Recycle Bin Cleaning ($3)", value: "recycle-bin", price: 3 }
 ];
 
 const planPrices = {
