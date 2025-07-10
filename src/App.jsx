@@ -155,21 +155,21 @@ export default function App() {
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
       if (name === "address" && value.length > 2) {
-        // Search only US addresses
+        // Search only Missouri addresses
         fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&countrycodes=us&limit=5&addressdetails=1`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}, Missouri&countrycodes=us&limit=5&addressdetails=1`
         )
           .then((res) => res.json())
           .then((data) => {
-            // Filter to only show addresses that look like US addresses
-            const usAddresses = data.filter(item => 
+            // Filter to only show Missouri addresses
+            const moAddresses = data.filter(item => 
               item.address && 
-              (item.address.country_code === 'us' || 
-               item.address.country === 'United States' ||
-               item.address.state || 
-               item.address.postcode)
+              (item.address.state === 'Missouri' || 
+               item.address.state === 'MO' ||
+               item.display_name.includes('Missouri') ||
+               item.display_name.includes(', MO,'))
             );
-            setAddressSuggestions(usAddresses.slice(0, 5));
+            setAddressSuggestions(moAddresses.slice(0, 5));
           })
           .catch(() => setAddressSuggestions([]));
       }
