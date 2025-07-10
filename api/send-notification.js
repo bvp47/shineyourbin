@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     
     // Send notification email to you
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'delivered@resend.dev',
       to: process.env.OWNER_EMAIL,
       subject: `🗑️ New Booking: ${bookingData.name} - ${bookingData.address}`,
       html: `
