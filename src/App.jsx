@@ -21,6 +21,11 @@ const planPrices = {
   "bi-weekly": 25
 };
 
+const paymentMethods = [
+  { value: "cash", label: "Cash", description: "Paid at time of service" },
+  { value: "card", label: "Credit/Debit Card", description: "Invoice will be sent upon completion of service" }
+];
+
 // Simple Button component
 const Button = ({ children, variant = "default", className = "", type = "button", disabled = false, ...props }) => {
   const baseClasses = "px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
@@ -90,7 +95,8 @@ export default function App() {
     plan: "",
     date: null,
     timeSlot: "",
-    addons: []
+    addons: [],
+    paymentMethod: ""
   });
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [bookedSlots, setBookedSlots] = useState({});
@@ -200,12 +206,32 @@ export default function App() {
             time_slot: form.timeSlot,
             addons: form.addons,
             total_price: totalPrice,
+            payment_method: form.paymentMethod,
             status: 'pending'
           }
         ])
         .select();
 
       if (error) throw error;
+
+      // Send email notification to you
+      try {
+        await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bookingData: {
+              ...data[0],
+              payment_method: form.paymentMethod
+            }
+          }),
+        });
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Don't fail the booking if email fails
+      }
 
       setSubmitMessage("🎉 Booking submitted successfully! We'll contact you soon to confirm your cleaning appointment.");
       
@@ -217,7 +243,8 @@ export default function App() {
         plan: "",
         date: null,
         timeSlot: "",
-        addons: []
+        addons: [],
+        paymentMethod: ""
       });
 
       // Reload booked slots
@@ -235,6 +262,11 @@ export default function App() {
     if (!form.date) return false;
     const day = form.date.toISOString().split("T")[0];
     return bookedSlots[day]?.includes(slot);
+  };
+
+  const getPaymentDescription = () => {
+    const method = paymentMethods.find(pm => pm.value === form.paymentMethod);
+    return method ? method.description : "";
   };
 
   return (
@@ -262,7 +294,7 @@ export default function App() {
               <Input name="name" placeholder="Full Name" value={form.name} onChange={handleChange} required />
               <Input name="email" type="email" placeholder="Email Address" value={form.email} onChange={handleChange} required />
               <div className="relative">
-                <Input name="address" placeholder="Street Address" value={form.address} onChange={handleChange} required />
+                <Input name="address" placeholder="Street Address (Missouri only)" value={form.address} onChange={handleChange} required />
                 {addressSuggestions.length > 0 && (
                   <ul className="absolute z-10 w-full border mt-1 rounded shadow bg-white text-sm max-h-40 overflow-y-auto">
                     {addressSuggestions.map((s, idx) => (
@@ -335,8 +367,36 @@ export default function App() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                <div className="space-y-3">
+                  {paymentMethods.map(({ value, label, description }) => (
+                    <label key={value} className="flex items-start space-x-3 cursor-pointer p-3 border rounded-md hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={value}
+                        checked={form.paymentMethod === value}
+                        onChange={handleChange}
+                        required
+                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500 mt-0.5"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">{label}</div>
+                        <div className="text-sm text-gray-600">{description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="text-right text-lg font-semibold text-green-700 pt-4 border-t">
-                Total: ${totalPrice.toFixed(2)}
+                <div>Total: ${totalPrice.toFixed(2)}</div>
+                {form.paymentMethod && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    {getPaymentDescription()}
+                  </div>
+                )}
               </div>
 
               <Button 
