@@ -270,3 +270,5 @@ export default function App() {
         © {new Date().getFullYear()} ShineYourBin. All rights reserved.
       </footer>
     </div>
+  );
+}
