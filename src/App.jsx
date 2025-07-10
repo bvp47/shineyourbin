@@ -11,19 +11,18 @@ const timeSlots = [
 
 const addonOptions = [
   { label: "Deodorizer Spray ($2)", value: "deodorizer", price: 2 },
-  { label: "Recycle Bin Cleaning ($5)", value: "recycle-bin", price: 5 },
-  { label: "Pet Waste Bin ($4)", value: "pet-waste", price: 4 }
+  { label: "Recycle Bin Cleaning ($5)", value: "recycle-bin", price: 5 }
 ];
 
 const planPrices = {
-  "one-time": 19.99,
-  "monthly": 15,
-  "bi-weekly": 25
+  "one-time": 10.00
 };
 
 const paymentMethods = [
   { value: "cash", label: "Cash", description: "Paid at time of service" },
-  { value: "card", label: "Credit/Debit Card", description: "Invoice will be sent upon completion of service" }
+  { value: "card", label: "Credit/Debit Card", description: "Invoice will be sent upon completion of service" },
+  { value: "venmo", label: "Venmo", description: "Invoice will be sent upon completion of service" },
+  { value: "apple-pay", label: "Apple Pay", description: "Invoice will be sent upon completion of service" }
 ];
 
 // Simple Button component
@@ -93,6 +92,7 @@ export default function App() {
     email: "",
     address: "",
     plan: "",
+    binQuantity: 1,
     date: null,
     timeSlot: "",
     addons: [],
@@ -112,14 +112,14 @@ export default function App() {
   useEffect(() => {
     let total = 0;
     if (form.plan && planPrices[form.plan]) {
-      total += planPrices[form.plan];
+      total += planPrices[form.plan] * form.binQuantity; // Multiply by bin quantity
     }
     form.addons.forEach((addon) => {
       const match = addonOptions.find((opt) => opt.value === addon);
       if (match) total += match.price;
     });
     setTotalPrice(total);
-  }, [form.plan, form.addons]);
+  }, [form.plan, form.addons, form.binQuantity]); // Add binQuantity dependency
 
   const loadBookedSlots = async () => {
     try {
@@ -202,6 +202,7 @@ export default function App() {
             email: form.email,
             address: form.address,
             plan: form.plan,
+            bin_quantity: form.binQuantity,
             date: form.date.toISOString().split('T')[0],
             time_slot: form.timeSlot,
             addons: form.addons,
@@ -224,7 +225,8 @@ export default function App() {
           body: JSON.stringify({
             bookingData: {
               ...data[0],
-              payment_method: form.paymentMethod
+              payment_method: form.paymentMethod,
+              bin_quantity: form.binQuantity
             }
           }),
         });
@@ -241,6 +243,7 @@ export default function App() {
         email: "",
         address: "",
         plan: "",
+        binQuantity: 1,
         date: null,
         timeSlot: "",
         addons: [],
@@ -313,11 +316,27 @@ export default function App() {
                 required
                 className="w-full p-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
-                <option value="">Select a Plan</option>
-                <option value="one-time">One-Time Cleaning – $19.99</option>
-                <option value="monthly">Monthly Subscription – $15/mo</option>
-                <option value="bi-weekly">Bi-Weekly – $25/mo</option>
+                <option value="">Select Service</option>
+                <option value="one-time">Trash Bin Cleaning Service</option>
               </select>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Number of Bins</label>
+                <select
+                  name="binQuantity"
+                  value={form.binQuantity}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value={1}>1 Bin - $10.00</option>
+                  <option value={2}>2 Bins - $20.00</option>
+                  <option value={3}>3 Bins - $30.00</option>
+                  <option value={4}>4 Bins - $40.00</option>
+                  <option value={5}>5 Bins - $50.00</option>
+                  <option value={6}>6 Bins - $60.00</option>
+                </select>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Cleaning Date</label>
@@ -391,7 +410,14 @@ export default function App() {
               </div>
 
               <div className="text-right text-lg font-semibold text-green-700 pt-4 border-t">
-                <div>Total: ${totalPrice.toFixed(2)}</div>
+                <div>
+                  {form.plan && form.binQuantity > 0 && (
+                    <div className="text-sm text-gray-600 mb-1">
+                      {form.binQuantity} bin{form.binQuantity > 1 ? 's' : ''} × $10.00 = ${(form.binQuantity * 10).toFixed(2)}
+                    </div>
+                  )}
+                  Total: ${totalPrice.toFixed(2)}
+                </div>
                 {form.paymentMethod && (
                   <div className="text-sm text-gray-600 mt-1">
                     {getPaymentDescription()}
@@ -412,12 +438,12 @@ export default function App() {
       </section>
 
       <section className="bg-green-100 py-12 text-center">
-        <h3 className="text-xl font-bold mb-2">Subscribe for Automatic Cleanings</h3>
+        <h3 className="text-xl font-bold mb-2">Professional Trash Bin Cleaning</h3>
         <p className="text-gray-700 mb-4 max-w-xl mx-auto">
-          Monthly and bi-weekly subscriptions available. Enjoy a consistently fresh bin without lifting a finger.
+          We clean your trash bins so you don't have to. Fresh, sanitized bins delivered to your curb.
         </p>
         <Button variant="default" className="bg-green-600 text-white hover:bg-green-700 px-6 py-2 text-sm rounded-full">
-          View Subscription Options
+          Book Your Cleaning
         </Button>
       </section>
 
