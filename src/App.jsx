@@ -1,0 +1,272 @@
+import { useState, useEffect } from "react";
+
+const timeSlots = [
+  "8:00 AM - 10:00 AM",
+  "10:00 AM - 12:00 PM",
+  "12:00 PM - 2:00 PM",
+  "2:00 PM - 4:00 PM",
+  "4:00 PM - 6:00 PM"
+];
+
+const addonOptions = [
+  { label: "Deodorizer Spray ($2)", value: "deodorizer", price: 2 },
+  { label: "Recycle Bin Cleaning ($5)", value: "recycle-bin", price: 5 },
+  { label: "Pet Waste Bin ($4)", value: "pet-waste", price: 4 }
+];
+
+const planPrices = {
+  "one-time": 19.99,
+  "monthly": 15,
+  "bi-weekly": 25
+};
+
+// Simple Button component
+const Button = ({ children, variant = "default", className = "", type = "button", ...props }) => {
+  const baseClasses = "px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
+  const variants = {
+    default: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500",
+    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-green-500"
+  };
+  
+  return (
+    <button
+      type={type}
+      className={`${baseClasses} ${variants[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+// Simple Input component
+const Input = ({ className = "", ...props }) => {
+  return (
+    <input
+      className={`w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${className}`}
+      {...props}
+    />
+  );
+};
+
+// Simple Card components
+const Card = ({ children, className = "" }) => {
+  return (
+    <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
+      {children}
+    </div>
+  );
+};
+
+const CardContent = ({ children, className = "" }) => {
+  return (
+    <div className={`p-6 ${className}`}>
+      {children}
+    </div>
+  );
+};
+
+// Simple DatePicker component
+const DatePicker = ({ selected, onChange, className = "", placeholderText, required }) => {
+  return (
+    <input
+      type="date"
+      value={selected ? selected.toISOString().split('T')[0] : ''}
+      onChange={(e) => onChange(e.target.value ? new Date(e.target.value) : null)}
+      className={`w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${className}`}
+      placeholder={placeholderText}
+      required={required}
+    />
+  );
+};
+
+export default function App() {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    address: "",
+    plan: "",
+    date: null,
+    timeSlot: "",
+    addons: []
+  });
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [bookedSlots, setBookedSlots] = useState({});
+  const [totalPrice, setTotalPrice] = useState(0);
+
+  useEffect(() => {
+    setBookedSlots({
+      "2025-07-12": ["10:00 AM - 12:00 PM"],
+      "2025-07-13": ["8:00 AM - 10:00 AM", "2:00 PM - 4:00 PM"]
+    });
+  }, []);
+
+  useEffect(() => {
+    let total = 0;
+    if (form.plan && planPrices[form.plan]) {
+      total += planPrices[form.plan];
+    }
+    form.addons.forEach((addon) => {
+      const match = addonOptions.find((opt) => opt.value === addon);
+      if (match) total += match.price;
+    });
+    setTotalPrice(total);
+  }, [form.plan, form.addons]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    if (name === "addons") {
+      setForm((prev) => {
+        const updated = checked
+          ? [...prev.addons, value]
+          : prev.addons.filter((v) => v !== value);
+        return { ...prev, addons: updated };
+      });
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+      if (name === "address" && value.length > 2) {
+        fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}`
+        )
+          .then((res) => res.json())
+          .then((data) => setAddressSuggestions(data.slice(0, 5)))
+          .catch(() => setAddressSuggestions([]));
+      }
+    }
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setForm((prev) => ({ ...prev, address: suggestion.display_name }));
+    setAddressSuggestions([]);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log("Form Submitted:", form);
+    alert("Booking submitted! (Mock)");
+  };
+
+  const isSlotDisabled = (slot) => {
+    if (!form.date) return false;
+    const day = form.date.toISOString().split("T")[0];
+    return bookedSlots[day]?.includes(slot);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white text-gray-900 font-sans">
+      <header className="p-6 border-b bg-white shadow flex justify-between items-center">
+        <h1 className="text-3xl font-extrabold text-green-700 tracking-wide">ShineYourBin</h1>
+        <Button variant="outline" className="rounded-full px-4 py-1 text-sm">Login</Button>
+      </header>
+
+      <section className="px-6 py-16 max-w-4xl mx-auto text-center">
+        <h2 className="text-5xl font-bold mb-4 leading-tight text-green-800">Trash Bin Cleaning Service</h2>
+        <p className="text-lg text-gray-600 mb-10 max-w-2xl mx-auto">
+          Hassle-free one-time or recurring trash can cleanings. Book your cleaning online in minutes.
+        </p>
+
+        <Card className="text-left max-w-xl mx-auto shadow-xl">
+          <CardContent className="p-8 space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <Input name="name" placeholder="Full Name" value={form.name} onChange={handleChange} required />
+              <Input name="email" type="email" placeholder="Email Address" value={form.email} onChange={handleChange} required />
+              <div className="relative">
+                <Input name="address" placeholder="Street Address" value={form.address} onChange={handleChange} required />
+                {addressSuggestions.length > 0 && (
+                  <ul className="absolute z-10 w-full border mt-1 rounded shadow bg-white text-sm max-h-40 overflow-y-auto">
+                    {addressSuggestions.map((s, idx) => (
+                      <li key={idx} className="p-2 hover:bg-green-100 cursor-pointer" onClick={() => handleSuggestionClick(s)}>
+                        {s.display_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <select
+                name="plan"
+                value={form.plan}
+                onChange={handleChange}
+                required
+                className="w-full p-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="">Select a Plan</option>
+                <option value="one-time">One-Time Cleaning – $19.99</option>
+                <option value="monthly">Monthly Subscription – $15/mo</option>
+                <option value="bi-weekly">Bi-Weekly – $25/mo</option>
+              </select>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Cleaning Date</label>
+                <DatePicker
+                  selected={form.date}
+                  onChange={(date) => setForm((prev) => ({ ...prev, date }))}
+                  className="w-full p-2 border rounded-md"
+                  placeholderText="Choose a date"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Time Slot</label>
+                <select
+                  name="timeSlot"
+                  value={form.timeSlot}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="">Select a Time Slot</option>
+                  {timeSlots.map((slot) => (
+                    <option key={slot} value={slot} disabled={isSlotDisabled(slot)}>
+                      {slot} {isSlotDisabled(slot) ? "(Unavailable)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Add-On Services</label>
+                <div className="space-y-2">
+                  {addonOptions.map(({ label, value }) => (
+                    <label key={value} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="addons"
+                        value={value}
+                        checked={form.addons.includes(value)}
+                        onChange={handleChange}
+                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-right text-lg font-semibold text-green-700 pt-4 border-t">
+                Total: ${totalPrice.toFixed(2)}
+              </div>
+
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3 rounded-md">
+                Confirm Booking
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="bg-green-100 py-12 text-center">
+        <h3 className="text-xl font-bold mb-2">Subscribe for Automatic Cleanings</h3>
+        <p className="text-gray-700 mb-4 max-w-xl mx-auto">
+          Monthly and bi-weekly subscriptions available. Enjoy a consistently fresh bin without lifting a finger.
+        </p>
+        <Button variant="default" className="bg-green-600 text-white hover:bg-green-700 px-6 py-2 text-sm rounded-full">
+          View Subscription Options
+        </Button>
+      </section>
+
+      <footer className="text-center text-sm text-gray-500 py-6">
+        © {new Date().getFullYear()} ShineYourBin. All rights reserved.
+      </footer>
+    </div>
