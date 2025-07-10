@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
+import { createCheckoutSession } from "./stripe";
 
 const timeSlots = [
   "8:00 AM - 10:00 AM",
@@ -155,11 +156,22 @@ export default function App() {
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
       if (name === "address" && value.length > 2) {
+        // Search only US addresses
         fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&countrycodes=us&limit=5&addressdetails=1`
         )
           .then((res) => res.json())
-          .then((data) => setAddressSuggestions(data.slice(0, 5)))
+          .then((data) => {
+            // Filter to only show addresses that look like US addresses
+            const usAddresses = data.filter(item => 
+              item.address && 
+              (item.address.country_code === 'us' || 
+               item.address.country === 'United States' ||
+               item.address.state || 
+               item.address.postcode)
+            );
+            setAddressSuggestions(usAddresses.slice(0, 5));
+          })
           .catch(() => setAddressSuggestions([]));
       }
     }
@@ -176,46 +188,24 @@ export default function App() {
     setSubmitMessage("");
 
     try {
-      // Insert booking into Supabase
-      const { data, error } = await supabase
-        .from('bookings')
-        .insert([
-          {
-            name: form.name,
-            email: form.email,
-            address: form.address,
-            plan: form.plan,
-            date: form.date.toISOString().split('T')[0],
-            time_slot: form.timeSlot,
-            addons: form.addons,
-            total_price: totalPrice,
-            status: 'pending'
-          }
-        ])
-        .select();
+      // Create booking data
+      const bookingData = {
+        name: form.name,
+        email: form.email,
+        address: form.address,
+        plan: form.plan,
+        date: form.date.toISOString().split('T')[0],
+        timeSlot: form.timeSlot,
+        addons: form.addons,
+        totalPrice: totalPrice,
+      };
 
-      if (error) throw error;
-
-      setSubmitMessage("🎉 Booking submitted successfully! We'll contact you soon to confirm your cleaning appointment.");
-      
-      // Reset form
-      setForm({
-        name: "",
-        email: "",
-        address: "",
-        plan: "",
-        date: null,
-        timeSlot: "",
-        addons: []
-      });
-
-      // Reload booked slots
-      loadBookedSlots();
+      // Create Stripe checkout session and redirect to payment
+      await createCheckoutSession(bookingData);
 
     } catch (error) {
-      console.error('Error submitting booking:', error);
-      setSubmitMessage("❌ Sorry, there was an error submitting your booking. Please try again or contact us directly.");
-    } finally {
+      console.error('Error processing payment:', error);
+      setSubmitMessage("❌ Sorry, there was an error processing your payment. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -333,7 +323,7 @@ export default function App() {
                 disabled={isSubmitting}
                 className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3 rounded-md"
               >
-                {isSubmitting ? "Submitting..." : "Confirm Booking"}
+                {isSubmitting ? "Processing..." : `Pay $${totalPrice.toFixed(2)} & Book Now`}
               </Button>
             </form>
           </CardContent>
