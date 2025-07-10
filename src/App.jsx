@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
-import { createCheckoutSession } from "./stripe";
 
 const timeSlots = [
   "8:00 AM - 10:00 AM",
@@ -188,24 +187,46 @@ export default function App() {
     setSubmitMessage("");
 
     try {
-      // Create booking data
-      const bookingData = {
-        name: form.name,
-        email: form.email,
-        address: form.address,
-        plan: form.plan,
-        date: form.date.toISOString().split('T')[0],
-        timeSlot: form.timeSlot,
-        addons: form.addons,
-        totalPrice: totalPrice,
-      };
+      // Insert booking into Supabase
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([
+          {
+            name: form.name,
+            email: form.email,
+            address: form.address,
+            plan: form.plan,
+            date: form.date.toISOString().split('T')[0],
+            time_slot: form.timeSlot,
+            addons: form.addons,
+            total_price: totalPrice,
+            status: 'pending'
+          }
+        ])
+        .select();
 
-      // Create Stripe checkout session and redirect to payment
-      await createCheckoutSession(bookingData);
+      if (error) throw error;
+
+      setSubmitMessage("🎉 Booking submitted successfully! We'll contact you soon to confirm your cleaning appointment.");
+      
+      // Reset form
+      setForm({
+        name: "",
+        email: "",
+        address: "",
+        plan: "",
+        date: null,
+        timeSlot: "",
+        addons: []
+      });
+
+      // Reload booked slots
+      loadBookedSlots();
 
     } catch (error) {
-      console.error('Error processing payment:', error);
-      setSubmitMessage("❌ Sorry, there was an error processing your payment. Please try again.");
+      console.error('Error submitting booking:', error);
+      setSubmitMessage("❌ Sorry, there was an error submitting your booking. Please try again or contact us directly.");
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -323,7 +344,7 @@ export default function App() {
                 disabled={isSubmitting}
                 className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3 rounded-md"
               >
-                {isSubmitting ? "Processing..." : `Pay $${totalPrice.toFixed(2)} & Book Now`}
+                {isSubmitting ? "Submitting..." : "Confirm Booking"}
               </Button>
             </form>
           </CardContent>
