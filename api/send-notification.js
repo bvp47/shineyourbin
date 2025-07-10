@@ -34,7 +34,8 @@ export default async function handler(req, res) {
             <p style="margin: 5px 0;"><strong>Date:</strong> ${bookingData.date}</p>
             <p style="margin: 5px 0;"><strong>Time:</strong> ${bookingData.time_slot}</p>
             <p style="margin: 5px 0;"><strong>Add-ons:</strong> ${bookingData.addons?.length > 0 ? bookingData.addons.join(', ') : 'None'}</p>
-            <p style="margin: 5px 0; font-size: 18px;"><strong>💰 Total Price: $${bookingData.total_price}</strong></p>
+            <p style="margin: 5px 0;"><strong>💳 Payment Method:</strong> ${bookingData.payment_method === 'cash' ? 'Cash (paid at time of service)' : 'Credit/Debit Card (invoice will be sent)'}</p>
+            <p style="margin: 5px 0; font-size: 18px;"><strong>💰 Total Price: ${bookingData.total_price}</strong></p>
           </div>
           
           <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
