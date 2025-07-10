@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "./supabase";
 
 const timeSlots = [
   "8:00 AM - 10:00 AM",
@@ -21,16 +22,17 @@ const planPrices = {
 };
 
 // Simple Button component
-const Button = ({ children, variant = "default", className = "", type = "button", ...props }) => {
+const Button = ({ children, variant = "default", className = "", type = "button", disabled = false, ...props }) => {
   const baseClasses = "px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
   const variants = {
-    default: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500",
-    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-green-500"
+    default: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed",
+    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-green-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
   };
   
   return (
     <button
       type={type}
+      disabled={disabled}
       className={`${baseClasses} ${variants[variant]} ${className}`}
       {...props}
     >
@@ -93,12 +95,12 @@ export default function App() {
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [bookedSlots, setBookedSlots] = useState({});
   const [totalPrice, setTotalPrice] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
 
   useEffect(() => {
-    setBookedSlots({
-      "2025-07-12": ["10:00 AM - 12:00 PM"],
-      "2025-07-13": ["8:00 AM - 10:00 AM", "2:00 PM - 4:00 PM"]
-    });
+    // Load booked slots from Supabase
+    loadBookedSlots();
   }, []);
 
   useEffect(() => {
@@ -112,6 +114,34 @@ export default function App() {
     });
     setTotalPrice(total);
   }, [form.plan, form.addons]);
+
+  const loadBookedSlots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('date, time_slot')
+        .eq('status', 'confirmed');
+
+      if (error) throw error;
+
+      // Group bookings by date
+      const slots = {};
+      data.forEach(booking => {
+        const dateStr = booking.date;
+        if (!slots[dateStr]) slots[dateStr] = [];
+        slots[dateStr].push(booking.time_slot);
+      });
+
+      setBookedSlots(slots);
+    } catch (error) {
+      console.error('Error loading booked slots:', error);
+      // Fallback to static data
+      setBookedSlots({
+        "2025-07-12": ["10:00 AM - 12:00 PM"],
+        "2025-07-13": ["8:00 AM - 10:00 AM", "2:00 PM - 4:00 PM"]
+      });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -140,10 +170,54 @@ export default function App() {
     setAddressSuggestions([]);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form Submitted:", form);
-    alert("Booking submitted! (Mock)");
+    setIsSubmitting(true);
+    setSubmitMessage("");
+
+    try {
+      // Insert booking into Supabase
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([
+          {
+            name: form.name,
+            email: form.email,
+            address: form.address,
+            plan: form.plan,
+            date: form.date.toISOString().split('T')[0],
+            time_slot: form.timeSlot,
+            addons: form.addons,
+            total_price: totalPrice,
+            status: 'pending'
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      setSubmitMessage("🎉 Booking submitted successfully! We'll contact you soon to confirm your cleaning appointment.");
+      
+      // Reset form
+      setForm({
+        name: "",
+        email: "",
+        address: "",
+        plan: "",
+        date: null,
+        timeSlot: "",
+        addons: []
+      });
+
+      // Reload booked slots
+      loadBookedSlots();
+
+    } catch (error) {
+      console.error('Error submitting booking:', error);
+      setSubmitMessage("❌ Sorry, there was an error submitting your booking. Please try again or contact us directly.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isSlotDisabled = (slot) => {
@@ -167,6 +241,12 @@ export default function App() {
 
         <Card className="text-left max-w-xl mx-auto shadow-xl">
           <CardContent className="p-8 space-y-5">
+            {submitMessage && (
+              <div className={`p-4 rounded-md ${submitMessage.includes('❌') ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>
+                {submitMessage}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-5">
               <Input name="name" placeholder="Full Name" value={form.name} onChange={handleChange} required />
               <Input name="email" type="email" placeholder="Email Address" value={form.email} onChange={handleChange} required />
@@ -248,8 +328,12 @@ export default function App() {
                 Total: ${totalPrice.toFixed(2)}
               </div>
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3 rounded-md">
-                Confirm Booking
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3 rounded-md"
+              >
+                {isSubmitting ? "Submitting..." : "Confirm Booking"}
               </Button>
             </form>
           </CardContent>
